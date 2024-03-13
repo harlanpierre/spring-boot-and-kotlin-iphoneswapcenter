@@ -9,6 +9,10 @@ import br.com.iphoneswapcenter.model.Book
 import br.com.iphoneswapcenter.repository.BookRepository
 import org.mapstruct.factory.Mappers
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.Pageable
+import org.springframework.data.web.PagedResourcesAssembler
+import org.springframework.hateoas.EntityModel
+import org.springframework.hateoas.PagedModel
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo
 import org.springframework.stereotype.Service
 import java.util.logging.Logger
@@ -19,22 +23,21 @@ class BookService {
     @Autowired
     private lateinit var repository: BookRepository
 
+    @Autowired
+    private lateinit var assembler: PagedResourcesAssembler<BookDTO>
+
     private val logger = Logger.getLogger(BookService::class.java.name)
 
     private val bookMapper: BookMapper = Mappers.getMapper(BookMapper::class.java)
 
-    fun findAll(): List<BookDTO> {
+    fun findAll(pageable: Pageable): PagedModel<EntityModel<BookDTO>> {
         logger.info("Finding all book!")
 
-        val books = repository.findAll() as ArrayList<Book>
-        val book = bookMapper.toDtoList(books)
+        val books = repository.findAll(pageable)
+        val book = books.map { b -> bookMapper.toBookDTO(b) }
+        book.map { b -> linkTo(BookController::class.java).slash(b.key).withSelfRel() }
 
-        for (book in book) {
-            val withSelfRel = linkTo(BookController::class.java).slash(book.key).withSelfRel()
-            book.add(withSelfRel)
-        }
-
-        return book
+        return assembler.toModel(book)
     }
 
     fun findById(id: Long): BookDTO {

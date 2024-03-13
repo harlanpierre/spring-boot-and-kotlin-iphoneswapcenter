@@ -9,8 +9,13 @@ import br.com.iphoneswapcenter.model.Person
 import br.com.iphoneswapcenter.repository.PersonRepository
 import org.mapstruct.factory.Mappers
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.Pageable
+import org.springframework.data.web.PagedResourcesAssembler
+import org.springframework.hateoas.EntityModel
+import org.springframework.hateoas.PagedModel
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.util.logging.Logger
 
 @Service
@@ -19,22 +24,31 @@ class PersonService {
     @Autowired
     private lateinit var repository: PersonRepository
 
+    @Autowired
+    private lateinit var assembler: PagedResourcesAssembler<PersonDTO>
+
     private val logger = Logger.getLogger(PersonService::class.java.name)
 
     private val personMapper: PersonMapper = Mappers.getMapper(PersonMapper::class.java)
 
-    fun findAll(): List<PersonDTO> {
+    fun findAll(pageable: Pageable): PagedModel<EntityModel<PersonDTO>> {
         logger.info("Finding all people!")
 
-        val persons = repository.findAll() as ArrayList<Person>
-        val people = personMapper.toDtoList(persons)
+        val persons = repository.findAll(pageable)
+        val people = persons.map { p -> personMapper.toPersonDTO(p) }
+        people.map { p -> linkTo(PersonController::class.java).slash(p.key).withSelfRel() }
 
-        for (person in people) {
-            val withSelfRel = linkTo(PersonController::class.java).slash(person.key).withSelfRel()
-            person.add(withSelfRel)
-        }
+        return assembler.toModel(people)
+    }
 
-        return people
+    fun findPersonByFirstName(firstName: String, pageable: Pageable): PagedModel<EntityModel<PersonDTO>> {
+        logger.info("Finding all people!")
+
+        val persons = repository.findPersonByFirstName(firstName, pageable)
+        val people = persons.map { p -> personMapper.toPersonDTO(p) }
+        people.map { p -> linkTo(PersonController::class.java).slash(p.key).withSelfRel() }
+
+        return assembler.toModel(people)
     }
 
     fun findById(id: Long): PersonDTO {
@@ -74,6 +88,20 @@ class PersonService {
 
         val updatePerson = repository.save(personMapper.toPerson(entityPerson)) //Converting for Person and updating.
         val personDTO = personMapper.toPersonDTO(updatePerson) //Converting for PersonDTO and return for Controller.
+
+        val withSelfRel = linkTo(PersonController::class.java).slash(personDTO.key).withSelfRel()
+        personDTO.add(withSelfRel)
+
+        return personDTO
+    }
+
+    @Transactional
+    fun disable(id: Long): PersonDTO {
+        logger.info("Disabling one person with ID $id!")
+        repository.disablePerson(id)
+        var person = repository.findById(id)
+            .orElseThrow { ResourceNotFoundException("No records found for this ID!") }
+        val personDTO = personMapper.toPersonDTO(person)
 
         val withSelfRel = linkTo(PersonController::class.java).slash(personDTO.key).withSelfRel()
         personDTO.add(withSelfRel)

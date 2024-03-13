@@ -9,11 +9,16 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
+import org.springframework.hateoas.EntityModel
+import org.springframework.hateoas.PagedModel
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
-@RequestMapping("/person")
+@RequestMapping("/api/person")
 @Tag(name = "People", description = "Endpoints for Managing People")
 class PersonController {
 
@@ -43,8 +48,47 @@ class PersonController {
             ]),
         ]
     )
-    fun findAll(): List<PersonDTO> {
-        return service.findAll()
+    fun findAll(@RequestParam(value = "page", defaultValue = "0") page: Int,
+                @RequestParam(value = "limit", defaultValue = "12") limit: Int,
+                @RequestParam(value = "direction", defaultValue = "asc") direction: String
+    ): ResponseEntity<PagedModel<EntityModel<PersonDTO>>> {
+        val sortDirection: Sort.Direction =
+            if("desc".equals(direction, ignoreCase = true)) Sort.Direction.DESC else Sort.Direction.ASC
+        val pageable: Pageable = PageRequest.of(page, limit, Sort.by(sortDirection, "firstName"))
+        return ResponseEntity.ok(service.findAll(pageable))
+    }
+    @GetMapping(value = ["/findPersonByFirstName/{firstName}"])
+    @Operation(summary = "Find by first name all People", description = "Find by first name all People", tags = ["People"],
+        responses = [
+            ApiResponse(description = "Sucess", responseCode = "200", content = [
+                    Content(array = ArraySchema(schema = Schema(implementation = PersonDTO::class)))
+            ]),
+            ApiResponse(description = "No Content", responseCode = "204", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Bad Request", responseCode = "400", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Unauthorized", responseCode = "401", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Not Found", responseCode = "404", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Internal Error", responseCode = "500", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+        ]
+    )
+    fun findPersonByFirstName(@PathVariable(value="firstName") firstName: String,
+                              @RequestParam(value = "page", defaultValue = "0") page: Int,
+                              @RequestParam(value = "limit", defaultValue = "12") limit: Int,
+                              @RequestParam(value = "direction", defaultValue = "asc") direction: String
+    ): ResponseEntity<PagedModel<EntityModel<PersonDTO>>> {
+        val sortDirection: Sort.Direction =
+            if("desc".equals(direction, ignoreCase = true)) Sort.Direction.DESC else Sort.Direction.ASC
+        val pageable: Pageable = PageRequest.of(page, limit, Sort.by(sortDirection, "firstName"))
+        return ResponseEntity.ok(service.findPersonByFirstName(firstName, pageable))
     }
 
     @GetMapping(value = ["/{id}"])
@@ -120,6 +164,34 @@ class PersonController {
     fun update(@RequestBody person: PersonDTO): PersonDTO {
         return service.update(person)
     }
+
+    @PatchMapping(value = ["/{id}"])
+    @Operation(summary = "Disable a Person", description = "Disable a Person", tags = ["People"],
+        responses = [
+            ApiResponse(description = "Sucess", responseCode = "200", content = [
+                Content(schema = Schema(implementation = PersonDTO::class))
+            ]),
+            ApiResponse(description = "No Content", responseCode = "204", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Bad Request", responseCode = "400", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Unauthorized", responseCode = "401", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Not Found", responseCode = "404", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+            ApiResponse(description = "Internal Error", responseCode = "500", content = [
+                Content(schema = Schema(implementation = Unit::class))
+            ]),
+        ]
+    )
+    fun disableById(@PathVariable(value="id") id: Long): PersonDTO {
+        return service.disable(id)
+    }
+
     @DeleteMapping(value = ["/{id}"])
     @Operation(summary = "Deletes a person", description = "Deletes a person", tags = ["People"],
         responses = [
